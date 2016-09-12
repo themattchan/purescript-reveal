@@ -1,0 +1,11 @@
+{
+  "name": "purescript-reveal",
+  "files": [],
+  "scripts": {
+      "init-example": "git clone https://github.com/hakimel/reveal.js.git example"
+//    "build": "pulp browserify --to public/scripts/Main.js",
+  //  "watch": "pulp --watch browserify --to public/scripts/Main.js"
+  },
+  "dependencies": {
+  }
+}
