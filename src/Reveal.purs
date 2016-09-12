@@ -7,6 +7,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 
+import Text.Smolder.HTML (Html)
 import Text.Smolder.HTML as Html
 import Text.Smolder.HTML.Attributes as Html
 import Text.Smolder.Markup
@@ -14,7 +15,10 @@ import Text.Smolder.Renderer.String as Smolder
 
 error = unsafeThrow
 
-data RevealOpts = RevealOpts { style :: String }
+--------------------------------------------------------------------------------
+-- * A mostly shallow embedding
+
+type RevealOpts = { styles :: Array String, script :: String }
 
 -- A complete slideshow
 data Deck = Deck (Array Section)
@@ -56,14 +60,42 @@ subtitle = Html.h2 <<< text
 -- image :: String -> Slide
 -- image =  error "TODO"
 
-render :: Deck -> String
-render (Deck d) = foldMap renderSection d
+
+--------------------------------------------------------------------------------
+-- * Compile
+
+render :: RevealOpts -> Deck -> Html
+render opts (Deck d) = contain opts $ topLevel $ foldMap renderSection d
   where
-    renderSection (Single s) = renderSlide s
-    renderSection (Section ss) = foldMap renderSlide ss
+    renderSection :: Section -> Html
+    renderSection (Single s) = section s
+    renderSection (Section ss) = section $ foldMap section ss
 
-    renderSlide = Smolder.render <<< parent "section"
+    renderSlide :: Slide -> Html
+    renderSlide = section
 
+section :: Slide -> Html
+section = parent "section"
+
+topLevel :: Html -> Html
+topLevel = (Html.div ! Html.className "reveal") <<<
+             (Html.div ! Html.className "slides")
+
+contain :: RevealOpts -> Html -> Html
+contain opts slides = do
+  Html.head $ buildStyles opts.styles
+  Html.body $ slides <> script
+  where
+    script = (Html.script ! Html.src opts.script $ pure unit)
+          <> (Html.script $ text "Reveal.initialize();")
+
+    buildStyles = foldMap (\s -> Html.link ! (Html.rel "stylesheet" <> Html.href s))
+
+renderString :: RevealOpts -> Deck -> String
+renderString opts = Smolder.render <<< render opts
+
+--------------------------------------------------------------------------------
+-- * Test
 
 sampleDeck :: Deck
 sampleDeck = Deck
@@ -73,6 +105,11 @@ sampleDeck = Deck
              subtitle "This is an example"
   ]
 
+defOpts :: RevealOpts
+defOpts = { styles: ["css/reveal.css", "css/theme/white.css"]
+          , script: "js/reveal.js"
+          }
+
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  log $ render sampleDeck
+  log $ renderString defOpts sampleDeck
