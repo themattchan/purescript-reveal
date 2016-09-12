@@ -1,6 +1,6 @@
 # purescript-reveal
 
-This is a small DSL to build slideshows in Purescript, abstracting over thepain of writing raw html.
+This is a small DSL to build slideshows in Purescript, abstracting over the pain of writing raw html.
 
 Currently it is designed towards the Reveal.js presentation structure, but the abstraction should be general enough that the slides can be rendered into any old html slideshow package.
 
