@@ -1,0 +1,19 @@
+{
+  "name": "purescript-reveal",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-console": "^1.0.0",
+    "purescript-smolder": "^5.0.0",
+    "purescript-exceptions": "^1.0.0",
+    "purescript-lists": "^1.0.1",
+    "purescript-foldable-traversable": "^1.0.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^1.0.0"
+  }
+}
