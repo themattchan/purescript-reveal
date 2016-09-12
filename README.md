@@ -9,7 +9,7 @@ FFI bindings for Reveal.js are not yet implemented, so you cannot yet use the mo
 ## Build the Example
 
 ```
-npm init-example
+npm run-script init-example
 ```
 
 then run the main function in `src/Reveal.purs` to render the presentation
