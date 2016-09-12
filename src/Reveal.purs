@@ -1,31 +1,38 @@
 module Reveal where
 
 import Prelude
-import Data.Foldable (foldMap)
 import Data.List
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-
+import Data.Maybe
+import Node.FS (FS)
+import Node.FS.Sync
+import Node.Encoding as Enc
+import Text.Smolder.Markup
 import Text.Smolder.HTML (Html)
 import Text.Smolder.HTML as Html
 import Text.Smolder.HTML.Attributes as Html
-import Text.Smolder.Markup
 import Text.Smolder.Renderer.String as Smolder
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Exception (catchException)
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Data.Foldable (foldMap)
+import Data.Monoid (mempty, class Monoid)
 
 error = unsafeThrow
 
 --------------------------------------------------------------------------------
 -- * A mostly shallow embedding
 
-type RevealOpts = { styles :: Array String, script :: String }
+type RevealOpts = { styles :: Array String, scripts :: Array String }
 
 -- | A complete slideshow
 data Deck = Deck (Array Section)
 
+instance deckSemigroup :: Semigroup Deck where
+  append (Deck a) (Deck b) = Deck (append a b)
+
 instance deckMonoid :: Monoid Deck where
   mempty = Deck []
-  Deck a `mappend` Deck b = Deck (a <> b)
 
 -- only one level of nesting allowed
 data Section
@@ -65,6 +72,9 @@ title =  Html.h1 <<< text
 subtitle :: String -> SlidePiece
 subtitle = Html.h2 <<< text
 
+author :: String -> SlidePiece
+author = Html.h2 <<< text
+
 -- bullets :: String -> Slide
 -- bullets =  error "TODO"
 
@@ -89,56 +99,61 @@ type SlideMeta =
 -- | A default blank metadata struct
 meta :: SlideMeta
 meta =
-  { title       = ""
-  , subtitle    = Nothing
-  , venue       = Nothing
-  , date        = Nothing
-  , author      = ""
-  , affiliation = Nothing
+  { title       : ""
+  , subtitle    : Nothing
+  , venue       : Nothing
+  , date        : Nothing
+  , author      : ""
+  , affiliation : Nothing
   }
 
 titleSlide :: SlideMeta -> Slide
-titleSlide meta = Slide $ do
-  title meta.title
+titleSlide m = Slide $ do
+  title m.title
  -- subtitle meta.subtitle
-  author meta.author
+  author m.author
 
-bulletSlide :: String -> SlidePiece -> Slide
+-- bulletSlide :: String -> SlidePiece -> Slide
 
-fullImageSlide :: FilePath -> Slide
+-- fullImageSlide :: FilePath -> Slide
 
-slide :: Slide -> Section
+slide :: SlidePiece -> Section
 slide = Single <<< Slide
 
 --------------------------------------------------------------------------------
 -- * Compile
 
-contain :: RevealOpts -> Html -> Html
-contain opts slides = do
-  Html.head $ buildStyles opts.styles
-  Html.body $ slides <> script
+container :: RevealOpts -> Html -> Html
+container opts slides = do
+  Html.html $ do
+    Html.head $ do
+      Html.meta ! Html.charset "utf-8"
+      Html.meta ! Html.name "viewport" ! Html.content "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      buildStyles opts.styles
+    Html.body $ do
+      topLevel slides
+      script
   where
-    script = (Html.script ! Html.src opts.script $ pure unit)
-          <> (Html.script $ text "Reveal.initialize();")
-
     buildStyles = foldMap (\s -> Html.link ! (Html.rel "stylesheet" <> Html.href s))
 
-topLevel :: Html -> Html
-topLevel = (Html.div ! Html.className "reveal") <<<
-             (Html.div ! Html.className "slides")
+    topLevel = (Html.div ! Html.className "reveal") <<<
+                 (Html.div ! Html.className "slides")
 
-section :: Slide -> Html
+    script = (foldMap (\s -> (Html.script ! Html.src s $ text mempty)) opts.scripts)
+          <> (Html.script $ text "Reveal.initialize();")
+
+section :: Html -> Html
 section = parent "section"
 
 renderHtml :: RevealOpts -> Deck -> Html
-renderHtml opts (Deck d) = contain opts $ topLevel $ foldMap renderSection d
+renderHtml opts (Deck d) = container opts $ foldMap renderSection d
   where
     renderSection :: Section -> Html
-    renderSection (Single s) = section s
-    renderSection (Section ss) = section $ foldMap section ss
+    renderSection (Single s) = renderSlide s
+    renderSection (Section ss) = section $ foldMap renderSlide ss
 
     renderSlide :: Slide -> Html
-    renderSlide = section
+    renderSlide (Slide s) = section s
 
 renderString :: RevealOpts -> Deck -> String
 renderString opts = Smolder.render <<< renderHtml opts
@@ -148,10 +163,10 @@ renderString opts = Smolder.render <<< renderHtml opts
 
 sampleDeck :: Deck
 sampleDeck = Deck
-  [ slide $ titleSlide (meta { title  = "Monoids for functional programming"
-                             , author = "Matt Chan"
-                             , venue  = "Awake Networks"
-                             })
+  [ Single $ titleSlide (meta { title  = "Monoids for functional programming"
+                              , author = "Matt Chan"
+                              , venue  = pure "Awake Networks"
+                              })
 
   , slide $ title "Example"
                    <==>
@@ -159,10 +174,13 @@ sampleDeck = Deck
   ]
 
 defOpts :: RevealOpts
-defOpts = { styles: ["css/reveal.css", "css/theme/white.css"]
-          , script: "js/reveal.js"
+defOpts = { styles: ["css/reveal.css", "css/theme/simple.css", "lib/css/zenburn.css"]
+          , scripts: ["js/reveal.js", "lib/js/head.min.js"]
           }
 
-main :: forall e. Eff (console :: CONSOLE | e) Unit
+main :: forall e. Eff (fs :: FS, console :: CONSOLE | e) Unit
 main = do
-  log $ renderString defOpts sampleDeck
+  let rendered = renderString defOpts sampleDeck
+  log $ rendered
+  catchException (\e -> log "write failed") $
+    writeTextFile Enc.UTF8 "example/index.html" rendered
