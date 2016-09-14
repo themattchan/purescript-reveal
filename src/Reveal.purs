@@ -5,6 +5,7 @@ import Data.List
 import Data.Maybe
 import Node.FS (FS)
 import Node.FS.Sync
+import Node.Path (FilePath())
 import Node.Encoding as Enc
 import Text.Smolder.Markup
 import Text.Smolder.HTML (Html)
@@ -178,9 +179,9 @@ defOpts = { styles: ["css/reveal.css", "css/theme/simple.css", "lib/css/zenburn.
           , scripts: ["js/reveal.js", "lib/js/head.min.js"]
           }
 
-main :: forall e. Eff (fs :: FS, console :: CONSOLE | e) Unit
-main = do
+renderTo :: forall e. FilePath -> Eff (fs :: FS, console :: CONSOLE | e) Unit
+renderTo outfile = do
   let rendered = renderString defOpts sampleDeck
   log $ rendered
   catchException (\e -> log "write failed") $
-    writeTextFile Enc.UTF8 "example/index.html" rendered
+    writeTextFile Enc.UTF8 outfile rendered
