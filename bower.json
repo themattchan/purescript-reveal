@@ -13,7 +13,7 @@
     "purescript-lists": "^1.0.1",
     "purescript-foldable-traversable": "^1.0.0",
     "purescript-node-fs": "^2.0.0",
-    "purescript-node-buffer": "^1.0.0"
+    "purescript-node-buffer": "^1.0.0",
   },
   "devDependencies": {
     "purescript-psci-support": "^1.0.0"

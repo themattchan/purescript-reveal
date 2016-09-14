@@ -68,20 +68,29 @@ vcat = (*>)
 -- nest =  error "TODO"
 
 title :: String -> SlidePiece
-title =  Html.h1 <<< text
+title =  Html.h2 <<< text
 
 subtitle :: String -> SlidePiece
-subtitle = Html.h2 <<< text
+subtitle = Html.h3 <<< text
 
 author :: String -> SlidePiece
-author = Html.h2 <<< text
+author = Html.b <<< text
 
--- bullets :: String -> Slide
--- bullets =  error "TODO"
+data BulletStyle = Dot | Num | Alpha | RomanU | RomanL
 
--- -- filepath
--- image :: String -> Slide
--- image =  error "TODO"
+bullets :: BulletStyle -> Array SlidePiece -> SlidePiece
+bullets style = blType <<< foldMap Html.li
+  where blType Dot    = Html.ul
+        blType Num    = Html.ol
+        blType Alpha  = Html.ol ! Html.type' "a"
+        blType RomanU = Html.ol ! Html.type' "I"
+        blType RomanL = Html.ol ! Html.type' "i"
+
+image :: String -> SlidePiece
+image = Html.img ! attribute "data-src" s $ void
+
+fullImage :: String -> Slide
+fullImage s = section ! attribute "data-background-image" s $ void
 
 --------------------------------------------------------------------------------
 -- * Default templates
@@ -111,18 +120,15 @@ meta =
 titleSlide :: SlideMeta -> Slide
 titleSlide m = Slide $ do
   title m.title
- -- subtitle meta.subtitle
   author m.author
-
--- bulletSlide :: String -> SlidePiece -> Slide
-
--- fullImageSlide :: FilePath -> Slide
 
 slide :: SlidePiece -> Section
 slide = Single <<< Slide
 
 --------------------------------------------------------------------------------
 -- * Compile
+
+void = text mempty
 
 container :: RevealOpts -> Html -> Html
 container opts slides = do
@@ -140,7 +146,7 @@ container opts slides = do
     topLevel = (Html.div ! Html.className "reveal") <<<
                  (Html.div ! Html.className "slides")
 
-    script = (foldMap (\s -> (Html.script ! Html.src s $ text mempty)) opts.scripts)
+    script = (foldMap (\s -> (Html.script ! Html.src s $ void)) opts.scripts)
           <> (Html.script $ text "Reveal.initialize();")
 
 section :: Html -> Html
